@@ -1,0 +1,20 @@
+{
+  "app/inbox/page.jsx -> @/components/dashboard-nav": {
+    "id": "app/inbox/page.jsx -> @/components/dashboard-nav",
+    "files": [
+      "static/chunks/_app-pages-browser_components_dashboard-nav_jsx.js"
+    ]
+  },
+  "app/inbox/page.jsx -> @/components/ui/avatar": {
+    "id": "app/inbox/page.jsx -> @/components/ui/avatar",
+    "files": [
+      "static/chunks/_app-pages-browser_components_ui_avatar_jsx.js"
+    ]
+  },
+  "app/inbox/page.jsx -> @/components/ui/button": {
+    "id": "app/inbox/page.jsx -> @/components/ui/button",
+    "files": [
+      "static/chunks/_app-pages-browser_components_ui_button_jsx.js"
+    ]
+  }
+}

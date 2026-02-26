@@ -1,0 +1,7 @@
+{
+  "allow": [
+    "@prisma/client",
+    "@prisma/engines",
+    "prisma"
+  ]
+}

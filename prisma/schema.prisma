@@ -1,0 +1,440 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  student
+  tutor
+  admin
+}
+
+enum SessionStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+enum SessionType {
+  online
+  in_person
+}
+
+model User {
+  id                        String   @id @default(uuid())
+  email                     String   @unique
+  password_hash             String
+  name                      String
+  role                      UserRole
+  avatar_url                String?
+  email_verified            Boolean  @default(false)
+  email_verification_token  String?
+  email_verification_expires DateTime?
+  reset_password_token      String?
+  reset_password_expires    DateTime?
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+  last_active_at            DateTime? // Last time user was active (logged in or interacted)
+  deleted_at                DateTime?
+
+  // Relationships
+  student                   Student?
+  tutor                     Tutor?
+  student_sessions          Session[] @relation("StudentSessions")
+  notifications             Notification[]
+  connection_requests       Connection[] @relation("ConnectionRequests")
+  connection_receivers      Connection[] @relation("ConnectionReceivers")
+  conversations_as_participant1 Conversation[] @relation("ConversationParticipant1")
+  conversations_as_participant2 Conversation[] @relation("ConversationParticipant2")
+  sent_messages             Message[] @relation("MessageSender")
+  study_plans               StudyPlan[] @relation("StudentStudyPlans")
+  ai_chat_memories          AIChatMemory[]
+  
+  @@map("users")
+}
+
+model Student {
+  id                String   @id @default(uuid())
+  user_id           String   @unique
+  semester          String?
+  gpa               Float?
+  subjects          String[] @default([])
+  study_hours       Int      @default(0)
+  progress_score    Int      @default(0)
+  current_streak    Int      @default(0)
+  level             String?
+  bio               String?  @db.Text
+  preferred_language String  @default("english")
+  timezone          String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  // Relationships
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@map("students")
+}
+
+model Tutor {
+  id                String   @id @default(uuid())
+  user_id           String   @unique
+  phone             String?
+  subjects          String[] @default([])
+  experience        String?
+  semester          String?
+  bio               String?  @db.Text
+  hourly_rate       Float?
+  rating            Float?   @default(0)
+  total_reviews     Int      @default(0)
+  is_verified       Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  // Relationships
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sessions          Session[]
+  availability      TutorAvailability[]
+  unavailable_dates TutorUnavailableDate[]
+  study_plans       StudyPlan[] @relation("TutorStudyPlans")
+  
+  @@map("tutors")
+}
+
+model Session {
+  id                String        @id @default(uuid())
+  student_id        String
+  tutor_id          String
+  subject           String
+  topic             String
+  description       String?       @db.Text
+  session_date      DateTime
+  start_time        String        // e.g., "3:00 PM"
+  end_time          String?       // e.g., "4:00 PM"
+  duration          Int           // in minutes
+  session_type      SessionType   @default(online)
+  status            SessionStatus @default(pending)
+  notes             String?       @db.Text
+  rating            Float?        // Rating from 1-5
+  cancellation_reason String?     @db.Text
+  rescheduled_from  String?       // Original session date/time if rescheduled
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+
+  // Relationships
+  student           User          @relation("StudentSessions", fields: [student_id], references: [id], onDelete: Cascade)
+  tutor             Tutor         @relation(fields: [tutor_id], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+enum NotificationType {
+  session_reminder
+  session_request
+  session_confirmed
+  session_cancelled
+  session_rescheduled
+  session_completed
+}
+
+enum NotificationStatus {
+  unread
+  read
+}
+
+model Notification {
+  id          String            @id @default(uuid())
+  user_id     String
+  type        NotificationType
+  title       String
+  message     String            @db.Text
+  status      NotificationStatus @default(unread)
+  session_id  String?           // Link to session if applicable
+  link        String?           // Optional link to navigate to
+  created_at  DateTime          @default(now())
+  read_at     DateTime?
+
+  // Relationships
+  user        User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum DayOfWeek {
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+}
+
+model TutorAvailability {
+  id          String      @id @default(uuid())
+  tutor_id    String
+  day_of_week DayOfWeek
+  start_time  String      // e.g., "9:00 AM"
+  end_time    String      // e.g., "5:00 PM"
+  is_available Boolean    @default(true)
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  // Relationships
+  tutor       Tutor       @relation(fields: [tutor_id], references: [id], onDelete: Cascade)
+
+  @@index([tutor_id, day_of_week])
+  @@unique([tutor_id, day_of_week, start_time, end_time])
+  @@map("tutor_availability")
+}
+
+model TutorUnavailableDate {
+  id          String      @id @default(uuid())
+  tutor_id    String
+  date        DateTime
+  reason      String?     @db.Text
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  // Relationships
+  tutor       Tutor       @relation(fields: [tutor_id], references: [id], onDelete: Cascade)
+
+  @@unique([tutor_id, date])
+  @@map("tutor_unavailable_dates")
+}
+
+enum ConnectionStatus {
+  pending
+  accepted
+  declined
+}
+
+model Connection {
+  id          String            @id @default(uuid())
+  requester_id String
+  receiver_id  String
+  status      ConnectionStatus  @default(pending)
+  message     String?           @db.Text
+  created_at  DateTime          @default(now())
+  updated_at  DateTime          @updatedAt
+
+  // Relationships
+  requester   User              @relation("ConnectionRequests", fields: [requester_id], references: [id], onDelete: Cascade)
+  receiver    User              @relation("ConnectionReceivers", fields: [receiver_id], references: [id], onDelete: Cascade)
+
+  @@unique([requester_id, receiver_id])
+  @@index([requester_id])
+  @@index([receiver_id])
+  @@index([status])
+  @@map("connections")
+}
+
+model Conversation {
+  id          String   @id @default(uuid())
+  participant1_id String
+  participant2_id String
+  last_message_at DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relationships
+  participant1 User @relation("ConversationParticipant1", fields: [participant1_id], references: [id], onDelete: Cascade)
+  participant2 User @relation("ConversationParticipant2", fields: [participant2_id], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@unique([participant1_id, participant2_id])
+  @@index([participant1_id])
+  @@index([participant2_id])
+  @@index([last_message_at])
+  @@map("conversations")
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+}
+
+model Message {
+  id              String        @id @default(uuid())
+  conversation_id String
+  sender_id       String
+  content         String        @db.Text
+  status          MessageStatus @default(sent)
+  is_edited       Boolean       @default(false)
+  is_deleted      Boolean       @default(false)
+  edited_at       DateTime?
+  deleted_at      DateTime?
+  read_at         DateTime?
+  reactions       Json?         // Store reactions as JSON: { "👍": [user_id1, user_id2], "❤️": [user_id3] }
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  // Relationships
+  conversation    Conversation  @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender          User          @relation("MessageSender", fields: [sender_id], references: [id], onDelete: Cascade)
+
+  @@index([conversation_id])
+  @@index([sender_id])
+  @@index([created_at])
+  @@index([status])
+  @@map("messages")
+}
+
+model AIChatMemory {
+  id         String   @id @default(uuid())
+  user_id    String
+  role       String
+  content    String   @db.Text
+  metadata   Json?
+  created_at DateTime @default(now())
+
+  // Relationships
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("ai_chat_memories")
+}
+
+enum StudyPlanStatus {
+  draft
+  pending
+  active
+  paused
+  completed
+  cancelled
+}
+
+enum TaskType {
+  reading
+  video
+  assignment
+  quiz
+  practice
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+}
+
+model StudyPlan {
+  id                String            @id @default(uuid())
+  student_id        String
+  tutor_id          String
+  title             String
+  description       String?           @db.Text
+  subject           String
+  difficulty_level  String            // beginner, intermediate, advanced
+  status            StudyPlanStatus   @default(pending)
+  duration_weeks    Int?              // Duration in weeks
+  time_commitment   String?           // e.g., "5-7 hours/week"
+  learning_goals    String?           @db.Text
+  progress_percentage Int             @default(0)
+  started_at        DateTime?
+  completed_at      DateTime?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  // Relationships
+  student           User              @relation("StudentStudyPlans", fields: [student_id], references: [id], onDelete: Cascade)
+  tutor             Tutor             @relation("TutorStudyPlans", fields: [tutor_id], references: [id], onDelete: Cascade)
+  modules           Module[]
+  resources         StudyPlanResource[]
+  progress          StudyPlanProgress[]
+
+  @@index([student_id])
+  @@index([tutor_id])
+  @@index([status])
+  @@map("study_plans")
+}
+
+model Module {
+  id                String            @id @default(uuid())
+  study_plan_id     String
+  title             String
+  description       String?           @db.Text
+  week_number       Int?
+  order_index       Int               @default(0)
+  start_date        DateTime?
+  end_date          DateTime?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  // Relationships
+  study_plan        StudyPlan         @relation(fields: [study_plan_id], references: [id], onDelete: Cascade)
+  tasks             Task[]
+
+  @@index([study_plan_id])
+  @@index([order_index])
+  @@map("modules")
+}
+
+model Task {
+  id                String            @id @default(uuid())
+  module_id         String
+  title             String
+  description       String?           @db.Text
+  task_type         TaskType          @default(reading)
+  status            TaskStatus        @default(pending)
+  order_index       Int               @default(0)
+  due_date          DateTime?
+  completed_at      DateTime?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  // Relationships
+  module            Module            @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  progress          StudyPlanProgress[]
+
+  @@index([module_id])
+  @@index([status])
+  @@index([order_index])
+  @@map("tasks")
+}
+
+model StudyPlanResource {
+  id                String            @id @default(uuid())
+  study_plan_id     String
+  title             String
+  description       String?           @db.Text
+  resource_type     String            // pdf, video, link, document
+  file_url          String?
+  external_url      String?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+
+  // Relationships
+  study_plan        StudyPlan         @relation(fields: [study_plan_id], references: [id], onDelete: Cascade)
+
+  @@index([study_plan_id])
+  @@map("study_plan_resources")
+}
+
+model StudyPlanProgress {
+  id                String            @id @default(uuid())
+  study_plan_id     String
+  task_id           String
+  student_id        String
+  completed_at      DateTime          @default(now())
+  score             Float?            // Optional score for assignments/quizzes
+  notes             String?           @db.Text
+
+  // Relationships
+  study_plan        StudyPlan         @relation(fields: [study_plan_id], references: [id], onDelete: Cascade)
+  task              Task              @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@unique([study_plan_id, task_id, student_id])
+  @@index([study_plan_id])
+  @@index([task_id])
+  @@index([student_id])
+  @@map("study_plan_progress")
+}
