@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deepfake Detection and Misinterpretation of AI</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Deepfake Detection and Misinterpretation of AI</h1>
+      <p class="subtitle">
+        Upload a video to estimate how much AI/deepfake content is present.
+      </p>
+
+      <form id="uploadForm" class="card">
+        <label for="videoFile">Video file</label>
+        <input id="videoFile" type="file" accept="video/*" required />
+        <button type="submit">Analyze Video</button>
+      </form>
+
+      <section id="status" class="status"></section>
+
+      <section id="result" class="card hidden">
+        <h2>Analysis Result</h2>
+        <div class="grid">
+          <div><strong>Verdict:</strong> <span id="verdict"></span></div>
+          <div><strong>AI Content:</strong> <span id="aiPct"></span>%</div>
+          <div><strong>Confidence:</strong> <span id="confidence"></span>%</div>
+          <div><strong>Misinterpretation Index:</strong> <span id="misIndex"></span>%</div>
+          <div><strong>Frames Analyzed:</strong> <span id="frames"></span></div>
+          <div><strong>Model:</strong> <span id="model"></span></div>
+        </div>
+        <h3>Top Suspicious Frames</h3>
+        <ul id="highlights"></ul>
+        <h3>Notes</h3>
+        <ul id="notes"></ul>
+      </section>
+    </main>
+
+    <script src="/static/main.js"></script>
+  </body>
+</html>
